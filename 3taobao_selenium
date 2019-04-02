@@ -1,0 +1,75 @@
+from selenium import webdriver
+from lxml import etree
+from cookies_list import cookies
+import json,time
+
+
+class PAGE_CRAWL():
+    #初始化selenium的选项，keyword为需要搜索的商品关键词
+    def __init__(self,keyword):
+        self.url='https://s.taobao.com/search?q=%s'%(keyword)
+        self.options=webdriver.ChromeOptions()
+        self.options.add_argument('--headless')
+        self.options.add_argument('disable-gpu')
+        self.options.add_argument('USER-AGENT=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.86 Safari/537.36')
+        self.driver=webdriver.Chrome(options=self.options,executable_path='/Users/chris.guo/PycharmProjects/test/chromedriver 73')
+        #清空文件的所有内容
+        open('data.json','w').truncate()
+
+    #获得使用chromedriver加载网页，并返回初始化网页代码
+    def get_page_source(self,url):
+        self.driver.get(url=url)
+        self.driver.delete_all_cookies()
+        for i in cookies:
+            self.driver.add_cookie(i)
+        self.driver.get(url=url)
+        return etree.HTML(self.driver.page_source)
+
+    #根据预设好的xpath爬取taobao搜索页面的代码
+    def parse_page(self):
+        html=self.get_page_source(url=self.url)
+        eachult_list=html.xpath('//*[@id="mainsrp-itemlist"]/div/div/div[1]/div')
+        for each in eachult_list:
+            sub_html=''
+            title = each.xpath('string(./div[2]/div[2]/a)').strip()
+            price = each.xpath('./div[2]/div[1]/div[1]/strong/text()')[0]
+            store = each.xpath('string(./div[2]/div[3]/div[1]/a)')[0]
+            origin = each.xpath('./div[2]/div[3]/div[2]/text()')[0]
+            link = each.xpath('string(./div[2]/div[2]/a/@href)')
+            if str(each.xpath('./@class')).find('item-ad',0,len(str(each.xpath('./@class'))))==-1:
+                ad=False
+            else:
+                ad=True
+            try:
+                count = each.xpath('./div[2]/div[1]/div[2]/text()')[0]
+            except IndexError as e:
+                count='暂无数据'
+            if ad==False:
+                sub_html=self.get_page_source('https:'+link)
+                product_detail=sub_html.xpath('string(//*[@id="attributes"]/div/ul)')
+                product_detail.encode('utf-8')
+                product_detail=product_detail.replace('\t','')
+                product_detail = product_detail.replace(' ','')
+                print(product_detail,type(product_detail))
+            else:
+                product_detail=''
+            json_data = json.dumps(
+                {'title': title, 'price': price, 'count': count, 'store': store, 'origin': origin, 'link': link,
+                 'ad': ad,'product_detail':product_detail}, ensure_ascii=False) + '\n'
+            self.output_file(json_data)
+            time.sleep(1)
+
+    #数据写入模块
+    def output_file(self,data):
+        with open('data.json','a')as f:
+            f.write(data)
+
+    #退出webdriver程序
+    def __del__(self):
+        self.driver.close()
+        self.driver.quit()
+
+if __name__=='__main__':
+    a=PAGE_CRAWL(keyword='USBC')
+    a.parse_page()
+    del a
