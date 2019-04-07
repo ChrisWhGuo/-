@@ -40,6 +40,7 @@ class PAGE_CRAWL():
             store=store.replace('\n','').replace(' ','')
             origin = each.xpath('./div[2]/div[3]/div[2]/text()')[0]
             link = each.xpath('string(./div[2]/div[2]/a/@href)')
+            #根据标签class属性判断此商品是否为广告
             if str(each.xpath('./@class')).find('item-ad',0,len(str(each.xpath('./@class'))))==-1:
                 ad=0
                 link='https:'+link
@@ -49,6 +50,7 @@ class PAGE_CRAWL():
                 count = each.xpath('./div[2]/div[1]/div[2]/text()')[0]
             except IndexError as e:
                 count='暂无数据'
+            #当不是广告商品时，爬取商品的具体信息
             if ad==0:
                 sub_html=self.get_page_source(link)
                 product_detail=sub_html.xpath('string(//*[@id="attributes"]/div/ul)')
@@ -60,7 +62,7 @@ class PAGE_CRAWL():
             self.output_sql((title, price, count, store, origin, link, ad, product_detail))
             time.sleep(1)
 
-    #数据写入模块
+    #数据写入模块 将数据存入服务器
     def output_sql(self,args):
         sql = r'replace into crawl(title,price,counts,store,origin,link,ad,product_detail) values (%s,%s,%s,%s,%s,%s,%s,%s)'
         self.sqlutils.Modify(sql, args)
